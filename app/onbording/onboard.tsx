@@ -1,7 +1,6 @@
-import { Image, TouchableOpacity, View } from 'react-native';
-import { StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
@@ -23,8 +22,8 @@ export default function WiseNKapScreen() {
      {/* Illustration Image */}
 <ThemedView style={styles.illustrationContainer}>
   <Image
-    source={require('@/assets/images/illustration.png')}
-    style={styles.illustrationImage}
+    source={require('@/assets/images/imageonboard.png')}
+    style={styles.imageonboard}
     resizeMode="contain"
   />
 </ThemedView>
@@ -33,7 +32,7 @@ export default function WiseNKapScreen() {
       {/* Title */}
       <ThemedView style={styles.contentContainer}>
         <ThemedText type="title" style={styles.title}>
-          Note Down Expenses
+          Simple Money Management
         </ThemedText>
         
         {/* Subtitle */}
@@ -47,7 +46,7 @@ export default function WiseNKapScreen() {
         <TouchableOpacity 
           style={styles.button} 
           activeOpacity={0.8}
-          onPress={() => router.push('/onbording/onboard')}
+          onPress={() => router.push('/onbording/board')}
         >
           <LinearGradient
             colors={['#4169E1', '#1E90FF']}
@@ -64,7 +63,7 @@ export default function WiseNKapScreen() {
 }
 
 const styles = StyleSheet.create({
-  illustrationImage: {
+  imageonboard: {
   width: '100%',
   height: 220,
 },

@@ -1,24 +1,40 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../../FistApp/src/firebase';
+import { useEffect, useState } from 'react';
+import * as SplashScreen from 'expo-splash-screen';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log("Firebase user:", firebaseUser);
+
+      setUser(firebaseUser);
+      setLoading(false);
+
+      SplashScreen.hideAsync();
+    });
+
+    return unsubscribe;
+  }, []);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack screenOptions={{ headerShown: false }}>
+      {!user ? (
+        <>
+          <Stack.Screen name="auth/login" />
+          <Stack.Screen name="auth/register" />
+        </>
+      ) : (
+        <>
+          <Stack.Screen name="(tabs)/index" />
+        </>
+      )}
+    </Stack>
   );
 }
