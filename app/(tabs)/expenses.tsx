@@ -1,4 +1,3 @@
-import { getAuth } from "firebase/auth";
 import {
     addDoc,
     collection,
@@ -13,15 +12,17 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Alert, FlatList, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { db } from "../../src/firebase";
+import { getAuth, onAuthStateChanged, User, signOut } from "firebase/auth";
+import { useRouter } from "expo-router";
 
 const CATEGORIES = [
-  { name: "Loyer", icon: "🏠", color: "#22C55E" },
-  { name: "Nourriture", icon: "🍔", color: "#22C55E" },
-  { name: "Boisson", icon: "🥤", color: "#22C55E" },
-  { name: "Habit", icon: "👕", color: "#22C55E" },
-  { name: "Transport", icon: "🚗", color: "#22C55E" },
-  { name: "Connexion", icon: "🌐", color: "#22C55E" },
-  { name: "Autres", icon: "•••", color: "#22C55E" },
+  { name: "Loyer", icon: "🏠", color: "#3B82F6" },
+  { name: "Nourriture", icon: "🍔", color: "#10B981" },
+  { name: "Boisson", icon: "🥤", color: "#F59E0B" },
+  { name: "Habit", icon: "👕", color: "#8B5CF6" },
+  { name: "Transport", icon: "🚗", color: "#EF4444" },
+  { name: "Connexion", icon: "🌐", color: "#06B6D4" },
+  { name: "Autres", icon: "•••", color: "#6B7280" },
 ];
 
 type Expense = {
@@ -34,24 +35,36 @@ type Expense = {
 };
 
 export default function ExpensesScreen() {
-  const user = getAuth().currentUser;
-
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
   const [budget, setBudget] = useState<number | null>(null);
   const [budgetInput, setBudgetInput] = useState("");
-
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [label, setLabel] = useState("");
 
-  /* 🔹 CHARGER BUDGET + DÉPENSES EN TEMPS RÉEL */
   useEffect(() => {
-    if (!user) return;
+    const auth = getAuth();
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setExpenses([]);
+      setBudget(null);
+      return;
+    }
 
     const userRef = doc(db, "users", user.uid);
     const unsubscribeBudget = onSnapshot(userRef, (snap) => {
       if (snap.exists()) {
         setBudget(snap.data().budget ?? null);
+      } else {
+        setBudget(null);
       }
     });
 
@@ -75,7 +88,18 @@ export default function ExpensesScreen() {
     };
   }, [user]);
 
-  /* 🔹 CALCULS */
+  const logout = async () => {
+    try {
+      const auth = getAuth();
+      await signOut(auth);
+      setExpenses([]);
+      setBudget(null);
+      router.replace("/auth/login");
+    } catch (e) {
+      Alert.alert("Erreur", "Impossible de se déconnecter");
+    }
+  };
+
   const totalExpenses = useMemo(
     () => expenses.reduce((sum, e) => sum + e.amount, 0),
     [expenses]
@@ -83,7 +107,6 @@ export default function ExpensesScreen() {
 
   const remainingBudget = budget !== null ? budget - totalExpenses : null;
 
-  /* 🔹 SAUVEGARDER LE BUDGET */
   const saveBudget = async () => {
     if (!user || !budgetInput) return;
 
@@ -97,7 +120,6 @@ export default function ExpensesScreen() {
     setBudgetInput("");
   };
 
-  /* 🔹 AJOUTER UNE DÉPENSE */
   const addExpense = async () => {
     if (!user || !amount || !category) {
       Alert.alert("Erreur", "Champs manquants");
@@ -123,251 +145,348 @@ export default function ExpensesScreen() {
     setCategory(null);
   };
 
-  /* 🔹 UI */
+  const getCategoryIcon = (categoryName: string) => {
+    return CATEGORIES.find((c) => c.name === categoryName)?.icon || "💰";
+  };
+
+  const getCategoryColor = (categoryName: string) => {
+    return CATEGORIES.find((c) => c.name === categoryName)?.color || "#6B7280";
+  };
+
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: "#F8F9FA" }}>
+    <ScrollView style={{ flex: 1, backgroundColor: "#F3F4F6" }}>
       {/* HEADER */}
-      <View style={{ backgroundColor: "#FFF", paddingTop: 20, paddingBottom: 20, paddingHorizontal: 20 }}>
-        <Text style={{ fontSize: 24, fontWeight: "bold", color: "#1F2937" }}>DashBoard</Text>
+      <View
+        style={{
+          backgroundColor: "#FFFFFF",
+          paddingTop: 60,
+          paddingBottom: 24,
+          paddingHorizontal: 20,
+          borderBottomLeftRadius: 0,
+          borderBottomRightRadius: 0,
+        }}
+      >
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <View>
+            <Text style={{ fontSize: 16, color: "#6B7280", marginBottom: 4 }}>Bonjour,</Text>
+            <Text style={{ fontSize: 28, fontWeight: "700", color: "#1F2937" }}>
+              {user?.displayName || "Utilisateur"}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={logout}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: "#F3F4F6",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ fontSize: 20 }}>👤</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* CARDS RÉSUMÉ */}
-      <View style={{ paddingHorizontal: 20, marginBottom: 30 }}>
-        <View style={{ flexDirection: "row", gap: 12 }}>
-          {/* Budget Card */}
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "#22C55E",
-              borderRadius: 16,
-              padding: 20,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-              elevation: 3,
-            }}
-          >
-            <Text style={{ fontSize: 14, color: "#FFF", opacity: 0.9, marginBottom: 12 }}>
-              BUDGET RESTART
-            </Text>
-            <Text style={{ fontSize: 28, fontWeight: "bold", color: "#FFF" }}>
-              {budget ?? "—"}
-            </Text>
-            <Text style={{ fontSize: 12, color: "#FFF", opacity: 0.8, marginTop: 8 }}>FCFA</Text>
+      {/* CARD BUDGET PRINCIPAL (style Mandiri) */}
+      <View style={{ paddingHorizontal: 20, marginTop: -30, marginBottom: 24 }}>
+        <View
+          style={{
+            backgroundColor: "#2563EB",
+            borderRadius: 20,
+            padding: 24,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.15,
+            shadowRadius: 12,
+            elevation: 8,
+          }}
+        >
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
+            <Text style={{ fontSize: 18, fontWeight: "600", color: "#FFFFFF" }}>Budget Manager</Text>
+            <Text style={{ fontSize: 24, fontWeight: "700", color: "#FFFFFF" }}>💳</Text>
           </View>
 
-          {/* Total Dépenses Card */}
+          <Text style={{ fontSize: 14, color: "#BFDBFE", marginBottom: 8 }}>Balance</Text>
+          <Text style={{ fontSize: 42, fontWeight: "700", color: "#FFFFFF", marginBottom: 4 }}>
+            ${remainingBudget !== null ? remainingBudget.toFixed(2) : "0.00"}
+          </Text>
+          <Text style={{ fontSize: 12, color: "#BFDBFE" }}>FCFA disponible</Text>
+        </View>
+      </View>
+
+      {/* SPENDING & INCOME */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+        <View style={{ flexDirection: "row", gap: 12 }}>
           <View
             style={{
               flex: 1,
-              backgroundColor: "#2563EB",
+              backgroundColor: "#FFFFFF",
               borderRadius: 16,
               padding: 20,
               shadowColor: "#000",
               shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-              elevation: 3,
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              elevation: 2,
             }}
           >
-            <Text style={{ fontSize: 14, color: "#FFF", opacity: 0.9, marginBottom: 12 }}>
-              TOTAL DÉDÉPENSES
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: "#FEE2E2",
+                justifyContent: "center",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <Text style={{ fontSize: 24 }}>↑</Text>
+            </View>
+            <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>Dépenses</Text>
+            <Text style={{ fontSize: 24, fontWeight: "700", color: "#1F2937" }}>
+              ${totalExpenses.toFixed(2)}
             </Text>
-            <Text style={{ fontSize: 28, fontWeight: "bold", color: "#FFF" }}>
-              {totalExpenses.toFixed(2)}
+          </View>
+
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "#FFFFFF",
+              borderRadius: 16,
+              padding: 20,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              elevation: 2,
+            }}
+          >
+            <View
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: "#D1FAE5",
+                justifyContent: "center",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              <Text style={{ fontSize: 24 }}>↓</Text>
+            </View>
+            <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>Budget</Text>
+            <Text style={{ fontSize: 24, fontWeight: "700", color: "#1F2937" }}>
+              ${budget !== null ? budget.toFixed(2) : "0.00"}
             </Text>
           </View>
         </View>
-
-        {/* Budget restant */}
-        {remainingBudget !== null && (
-          <View style={{ marginTop: 12 }}>
-            <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>Budget restant</Text>
-            <Text
-              style={{
-                fontSize: 18,
-                fontWeight: "600",
-                color: remainingBudget < 0 ? "#EF4444" : "#22C55E",
-              }}
-            >
-              {remainingBudget.toFixed(2)} FCFA
-            </Text>
-          </View>
-        )}
       </View>
 
       {/* DÉFINIR BUDGET */}
-      <View style={{ paddingHorizontal: 20, marginBottom: 30 }}>
-        <Text style={{ fontSize: 16, fontWeight: "600", color: "#1F2937", marginBottom: 12 }}>
-          Définir votre budget
-        </Text>
-
-        <TextInput
-          placeholder="Montant du budget (FCFA)"
-          placeholderTextColor="#9CA3AF"
-          keyboardType="numeric"
-          value={budgetInput}
-          onChangeText={setBudgetInput}
+      <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+        <View
           style={{
-            borderWidth: 1.5,
-            borderColor: "#2563EB",
-            borderRadius: 12,
-            padding: 14,
-            marginBottom: 12,
-            fontSize: 14,
-            color: "#1F2937",
-          }}
-        />
-
-        {/* <TextInput
-          placeholder="Montant (€)"
-          placeholderTextColor="#9CA3AF"
-          keyboardType="numeric"
-          style={{
-            borderWidth: 1.5,
-            borderColor: "#2563EB",
-            borderRadius: 12,
-            padding: 14,
-            marginBottom: 16,
-            fontSize: 14,
-            color: "#1F2937",
-          }}
-        /> */}
-
-        <TouchableOpacity
-          onPress={saveBudget}
-          style={{
-            backgroundColor: "#2563EB",
-            borderRadius: 12,
-            padding: 16,
-            alignItems: "center",
+            backgroundColor: "#FFFFFF",
+            borderRadius: 16,
+            padding: 20,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            elevation: 2,
           }}
         >
-          <Text style={{ color: "#FFF", fontWeight: "600", fontSize: 16 }}>
-            ENREGISTRER LE BUDGET
+          <Text style={{ fontSize: 18, fontWeight: "600", color: "#1F2937", marginBottom: 16 }}>
+            Définir votre budget
           </Text>
-        </TouchableOpacity>
-      </View>
 
-      {/* AJOUTER DÉPENSE */}
-      <View style={{ paddingHorizontal: 20, marginBottom: 30 }}>
-        <Text style={{ fontSize: 16, fontWeight: "600", color: "#1F2937", marginBottom: 12 }}>
-          Ajouter une dépense
-        </Text>
-
-        <TextInput
-          placeholder="Montant"
-          placeholderTextColor="#9CA3AF"
-          keyboardType="numeric"
-          value={amount}
-          onChangeText={setAmount}
-          style={{
-            borderWidth: 1.5,
-            borderColor: "#2563EB",
-            borderRadius: 12,
-            padding: 14,
-            marginBottom: 16,
-            fontSize: 14,
-            color: "#1F2937",
-          }}
-        />
-
-        {/* Categories Grid */}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-          {CATEGORIES.map((cat) => (
-            <TouchableOpacity
-              key={cat.name}
-              onPress={() => setCategory(cat.name)}
-              style={{
-                flex: 1,
-                minWidth: "47%",
-                backgroundColor: category === cat.name ? cat.color : "#E5E7EB",
-                borderRadius: 12,
-                paddingVertical: 12,
-                paddingHorizontal: 8,
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ fontSize: 20, marginBottom: 4 }}>{cat.icon}</Text>
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: "600",
-                  color: category === cat.name ? "#FFF" : "#6B7280",
-                  textAlign: "center",
-                }}
-              >
-                {cat.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {category === "Autres" && (
           <TextInput
-            placeholder="Nom de la dépense"
+            placeholder="Montant du budget (FCFA)"
             placeholderTextColor="#9CA3AF"
-            value={label}
-            onChangeText={setLabel}
+            keyboardType="numeric"
+            value={budgetInput}
+            onChangeText={setBudgetInput}
             style={{
-              borderWidth: 1.5,
-              borderColor: "#2563EB",
+              backgroundColor: "#F9FAFB",
               borderRadius: 12,
-              padding: 14,
-              marginBottom: 16,
-              fontSize: 14,
+              padding: 16,
+              marginBottom: 12,
+              fontSize: 16,
               color: "#1F2937",
             }}
           />
-        )}
 
-        <TouchableOpacity
-          onPress={addExpense}
-          style={{
-            backgroundColor: "#2563EB",
-            borderRadius: 12,
-            padding: 16,
-            alignItems: "center",
-          }}
-        >
-          <Text style={{ color: "#FFF", fontWeight: "600", fontSize: 16 }}>AJOUTER</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={saveBudget}
+            style={{
+              backgroundColor: "#2563EB",
+              borderRadius: 12,
+              padding: 16,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#FFFFFF", fontWeight: "600", fontSize: 16 }}>
+              Enregistrer
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* DÉPENSES RÉCENTES */}
-      <View style={{ paddingHorizontal: 20, marginBottom: 30 }}>
-        <Text style={{ fontSize: 16, fontWeight: "600", color: "#1F2937", marginBottom: 12 }}>
-          Dépenses récentes
-        </Text>
+      {/* AJOUTER DÉPENSE */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 16,
+            padding: 20,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            elevation: 2,
+          }}
+        >
+          <Text style={{ fontSize: 18, fontWeight: "600", color: "#1F2937", marginBottom: 16 }}>
+            Ajouter une dépense
+          </Text>
 
-        <FlatList
-          scrollEnabled={false}
-          data={expenses}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View
+          <TextInput
+            placeholder="Montant"
+            placeholderTextColor="#9CA3AF"
+            keyboardType="numeric"
+            value={amount}
+            onChangeText={setAmount}
+            style={{
+              backgroundColor: "#F9FAFB",
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 16,
+              fontSize: 16,
+              color: "#1F2937",
+            }}
+          />
+
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+            {CATEGORIES.map((cat) => (
+              <TouchableOpacity
+                key={cat.name}
+                onPress={() => setCategory(cat.name)}
+                style={{
+                  minWidth: "30%",
+                  backgroundColor: category === cat.name ? cat.color : "#F3F4F6",
+                  borderRadius: 12,
+                  paddingVertical: 14,
+                  paddingHorizontal: 12,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ fontSize: 24, marginBottom: 4 }}>{cat.icon}</Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "600",
+                    color: category === cat.name ? "#FFFFFF" : "#6B7280",
+                    textAlign: "center",
+                  }}
+                >
+                  {cat.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {category === "Autres" && (
+            <TextInput
+              placeholder="Nom de la dépense"
+              placeholderTextColor="#9CA3AF"
+              value={label}
+              onChangeText={setLabel}
               style={{
-                backgroundColor: "#FFF",
+                backgroundColor: "#F9FAFB",
                 borderRadius: 12,
-                padding: 14,
-                marginBottom: 8,
+                padding: 16,
+                marginBottom: 16,
+                fontSize: 16,
+                color: "#1F2937",
+              }}
+            />
+          )}
+
+          <TouchableOpacity
+            onPress={addExpense}
+            style={{
+              backgroundColor: "#2563EB",
+              borderRadius: 12,
+              padding: 16,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#FFFFFF", fontWeight: "600", fontSize: 16 }}>Ajouter</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* TRANSACTIONS */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 40 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <Text style={{ fontSize: 20, fontWeight: "700", color: "#1F2937" }}>Transactions</Text>
+          <TouchableOpacity>
+            <Text style={{ fontSize: 14, color: "#2563EB", fontWeight: "600" }}>Voir tout</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ gap: 12 }}>
+          {expenses.map((item) => (
+            <View
+              key={item.id}
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: 16,
+                padding: 16,
                 flexDirection: "row",
-                justifyContent: "space-between",
                 alignItems: "center",
-                borderLeftWidth: 4,
-                borderLeftColor: "#22C55E",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                elevation: 2,
               }}
             >
-              <Text style={{ fontSize: 14, color: "#1F2937", fontWeight: "500", flex: 1 }}>
-                {item.category} {item.label ? `(${item.label})` : ""}
-              </Text>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: "#2563EB" }}>
-                {item.amount.toFixed(2)}
+              <View
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 26,
+                  backgroundColor: getCategoryColor(item.category) + "20",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  marginRight: 16,
+                }}
+              >
+                <Text style={{ fontSize: 24 }}>{getCategoryIcon(item.category)}</Text>
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: "600", color: "#1F2937", marginBottom: 2 }}>
+                  {item.category}
+                </Text>
+                {item.label && (
+                  <Text style={{ fontSize: 13, color: "#6B7280" }}>{item.label}</Text>
+                )}
+                <Text style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
+                  {item.date?.toDate ? new Date(item.date.toDate()).toLocaleDateString() : "Aujourd'hui"}
+                </Text>
+              </View>
+
+              <Text style={{ fontSize: 18, fontWeight: "700", color: "#EF4444" }}>
+                -${item.amount.toFixed(2)}
               </Text>
             </View>
-          )}
-        />
+          ))}
+        </View>
       </View>
     </ScrollView>
   );

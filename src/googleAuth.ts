@@ -1,29 +1,42 @@
-import * as WebBrowser from "expo-web-browser";
-import * as Google from "expo-auth-session/providers/google";
-import { signInWithCredential, GoogleAuthProvider } from "firebase/auth";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 import { auth } from "./firebase";
 
-WebBrowser.maybeCompleteAuthSession();
+// 🔹 Configuration Google native
+GoogleSignin.configure({
+  webClientId:
+    "436264783009-mg58ln4g3f4c7m130n7s8abcckvsrr88.apps.googleusercontent.com",
+  offlineAccess: true,
+});
 
 export function useGoogleAuth() {
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId:
-      "436264783009-mg58ln4g3f4c7m130n7s8abcckvsrr88.apps.googleusercontent.com",
-  });
-
   const signInWithGoogle = async () => {
-    const result = await promptAsync();
+    try {
+      // 🔹 Vérifie Google Play Services
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
 
-    if (result.type === "success") {
-      const { id_token } = result.params;
+      // 🔹 Google Sign-In NATIF
+      const userInfo = await GoogleSignin.signIn();
 
-      const credential = GoogleAuthProvider.credential(id_token);
+      // ✅ ICI EST LA CORRECTION
+      const idToken = userInfo.data?.idToken;
+
+      if (!idToken) {
+        throw new Error("Google ID Token manquant");
+      }
+
+      // 🔹 Firebase credential
+      const credential = GoogleAuthProvider.credential(idToken);
+      
+
       await signInWithCredential(auth, credential);
+    } catch (error) {
+      console.log("Google Sign-In error:", error);
+      throw error;
     }
   };
 
-  return {
-    request,
-    signInWithGoogle,
-  };
+  return { signInWithGoogle };
 }

@@ -12,29 +12,24 @@ export default function RootLayout() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      console.log("Firebase user:", firebaseUser);
-
       setUser(firebaseUser);
       setLoading(false);
-
       SplashScreen.hideAsync();
     });
 
     return unsubscribe;
   }, []);
 
+  if (loading) return null; // loader pendant splash screen
+
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      {!user ? (
-        <>
-          <Stack.Screen name="auth/login" />
-          <Stack.Screen name="auth/register" />
-        </>
-      ) : (
-        <>
-          <Stack.Screen name="(tabs)/index" />
-        </>
-      )}
+    <Stack
+      initialRouteName={user ? "(tabs)" : "auth/login"}
+      screenOptions={{ headerShown: false }}
+    >
+      <Stack.Screen name="auth/login" />
+      <Stack.Screen name="auth/register" />
+      <Stack.Screen name="(tabs)" />
     </Stack>
   );
 }

@@ -19,7 +19,7 @@ export default function Login() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       setMessage("Connexion réussie ✅");
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/expenses");
     } catch (e: any) {
       setMessage(`Erreur : ${e.message}`);
     }
@@ -28,7 +28,7 @@ export default function Login() {
   const loginWithGoogle = async () => {
     try {
       await signInWithGoogle();
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/expenses");
     } catch (e: any) {
       setMessage("Erreur Google");
     }

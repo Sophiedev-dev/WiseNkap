@@ -13,8 +13,8 @@
     },
     "android": {
       "adaptiveIcon": {
-          "foregroundImage": "./assets/images/icon.png",
-          "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -37,7 +37,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,

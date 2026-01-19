@@ -19,7 +19,7 @@ export default function Register() {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       setMessage("Inscription réussie ✅");
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/expenses");
     } catch (e: any) {
       setMessage(`Erreur : ${e.message}`);
     }
@@ -28,7 +28,7 @@ export default function Register() {
   const registerWithGoogle = async () => {
     try {
       await signInWithGoogle();
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/expenses");
     } catch (e) {
       setMessage("Erreur Google");
     }
